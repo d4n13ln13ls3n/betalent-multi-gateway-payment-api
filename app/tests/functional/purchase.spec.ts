@@ -78,4 +78,38 @@ test.group('Purchase Flow', (group) => {
     assert.exists(response.body().data.transactionId)
     assert.exists(response.body().data.externalId)
   })
+
+    test('should fallback to Gateway 2 when Gateway 1 is inactive', async ({ client, assert }) => {
+        await Gateway.query().where('id', 1).update({ isActive: false })
+
+        const response = await client.post('/api/v1/purchase')
+        .header('Authorization', `Bearer ${authToken}`)
+        .json({
+            clientId: testClient.id,
+            products: [{ productId: testProduct.id, quantity: 1 }]
+        })
+
+        response.assertStatus(201)
+        assert.equal(response.body().data.gatewayId, 2) 
+
+        await Gateway.query().where('id', 1).update({ isActive: true })
+    })
+
+    test('should refund a completed transaction successfully', async ({ client, assert }) => {
+        const purchaseRes = await client.post('/api/v1/purchase')
+        .header('Authorization', `Bearer ${authToken}`)
+        .json({
+            clientId: testClient.id,
+            products: [{ productId: testProduct.id, quantity: 1 }]
+        })
+        
+        const transactionId = purchaseRes.body().data.transactionId
+
+        const refundRes = await client.post(`/api/v1/transactions/${transactionId}/refund`)
+        .header('Authorization', `Bearer ${authToken}`)
+
+        refundRes.assertStatus(200)
+        refundRes.assertBodyContains({ message: 'Refund processed successfully' })
+        assert.equal(refundRes.body().data.status, 'refunded')
+    })
 })

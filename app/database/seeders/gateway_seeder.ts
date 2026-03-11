@@ -3,17 +3,19 @@ import { BaseSeeder } from '@adonisjs/lucid/seeders'
 
 export default class extends BaseSeeder {
   async run() {
-    await Gateway.createMany([
+    await Gateway.updateOrCreateMany('name', [
       {
         name: 'Gateway 1',
+        baseUrl: 'http://127.0.0.1:3001',
         priority: 1,
-        baseUrl: 'http://localhost:3001',
+        isActive: true,
       },
       {
         name: 'Gateway 2',
+        baseUrl: 'http://127.0.0.1:3002',
         priority: 2,
-        baseUrl: 'http://localhost:3002',
-      },
+        isActive: true,
+      }
     ])
   }
 }
