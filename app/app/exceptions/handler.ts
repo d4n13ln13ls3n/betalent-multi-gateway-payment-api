@@ -1,19 +1,45 @@
-import app from '@adonisjs/core/services/app'
-import { type HttpContext, ExceptionHandler } from '@adonisjs/core/http'
-import logger from '@adonisjs/core/services/logger'
+import { ExceptionHandler } from '@adonisjs/core/http'
+import type { HttpContext } from '@adonisjs/core/http'
+import { AppError } from './app_error.ts'
 
 export default class HttpExceptionHandler extends ExceptionHandler {
-  protected debug = !app.inProduction
+  protected debug = false
 
-  async handle(error: unknown, ctx: HttpContext) {
-    return super.handle(error, ctx)
-  }
-
-  async report(error: unknown, ctx: HttpContext) {
-    if (this.shouldReport(error as any)) {
-      logger.error(`[GlobalErrorHandler] Exception not handled in route ${ctx.request.url()}: ${(error as any).message}`)
+  public async handle(error: any, ctx: HttpContext) {
+    if (error instanceof AppError) {
+      return ctx.response.status(error.status).send({
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        },
+      })
     }
 
-    return super.report(error, ctx)
+    if (error.code === 'E_ROW_NOT_FOUND') {
+      return ctx.response.status(404).send({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Resource not found',
+        },
+      })
+    }
+
+    if (error.messages) {
+      return ctx.response.status(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+          details: error.messages,
+        },
+      })
+    }
+
+    return ctx.response.status(500).send({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Unexpected error',
+      },
+    })
   }
 }

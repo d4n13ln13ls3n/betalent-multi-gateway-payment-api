@@ -1,75 +1,68 @@
 import type { IGateway } from "./gateway_interface.ts";
+import { AppError } from '#exceptions/app_error'
 
 export default class Gateway2 implements IGateway {
-    private readonly authToken = 'tk_f2198cc671b5289fa856'
-    private readonly authSecret = '3d15e8ed6131446ea7e3456728b1211f'
+  private readonly authToken = process.env.GATEWAY2_TOKEN!
+  private readonly authSecret = process.env.GATEWAY2_SECRET!
+  private readonly cardNumber = process.env.GATEWAY_CARD_NUMBER!
+  private readonly cardCvv = process.env.GATEWAY_CVV!
 
-    constructor(private baseUrl: string) {}
+  constructor(private baseUrl: string) {}
 
-    async pay(amount: number, metadata?: any) {
-        try {
-            const response = await fetch(`${this.baseUrl}/transacoes`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Gateway-Auth-Token': this.authToken,
-                    'Gateway-Auth-Secret': this.authSecret,
-                },
-                body: JSON.stringify({
-                    valor: amount,
-                    nome: metadata?.clientName || 'Customer',
-                    email: metadata?.clientEmail || 'customer@example.com',
-                    numeroCartao: '5569000000006063',
-                    cvv: '010',
-                }),
-            })
+  async pay(amount: number, metadata?: any) {
+    try {
+      const response = await fetch(`${this.baseUrl}/transacoes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Gateway-Auth-Token': this.authToken,
+          'Gateway-Auth-Secret': this.authSecret,
+        },
+        body: JSON.stringify({
+          valor: amount,
+          nome: metadata?.clientName || 'Customer',
+          email: metadata?.clientEmail || 'customer@example.com',
+          numeroCartao: this.cardNumber,
+          cvv: this.cardCvv,
+        }),
+      })
 
-            if (!response.ok) {
-                return {
-                    success: false,
-                    error: 'Gateway 2 payment failed',
-                }
-            }
+      if (!response.ok) {
+        return { success: false }
+      }
 
-            const data = (await response.json()) as { id: string }
+      const data = (await response.json()) as { id: string }
 
-            return {
-                success: true,
-                externalId: data.id || `GATEWAY2_${Date.now()}`,
-            }
-        } catch (error) {
-            return {
-                success: false,
-                error: 'Gateway 2 connection error',
-            }
-        }
+      return {
+        success: true,
+        externalId: data.id || `GATEWAY2_${Date.now()}`,
+      }
+
+    } catch {
+      throw new AppError('Gateway2 connection error', 502, 'GATEWAY_CONNECTION_ERROR')
     }
+  }
 
-    async refund(externalId: string) {
-        try {
-            const response = await fetch(`${this.baseUrl}/transacoes/reembolso`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Gateway-Auth-Token': this.authToken,
-                    'Gateway-Auth-Secret': this.authSecret,
-                },
-                body: JSON.stringify({ id: externalId}),
-            })
+  async refund(externalId: string) {
+    try {
+      const response = await fetch(`${this.baseUrl}/transacoes/reembolso`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Gateway-Auth-Token': this.authToken,
+          'Gateway-Auth-Secret': this.authSecret,
+        },
+        body: JSON.stringify({ id: externalId }),
+      })
 
-            if (!response.ok) {
-                return {
-                    success: false,
-                    error: 'Gateway 2 refund failed',
-                }
-            }
-            
-            return { success: true }
-        } catch (error) {
-            return {
-                success: false,
-                error: 'Gateway 2 connection error',
-            }
-        }
+      if (!response.ok) {
+        return { success: false }
+      }
+
+      return { success: true }
+
+    } catch {
+      throw new AppError('Gateway2 connection error', 502, 'GATEWAY_CONNECTION_ERROR')
     }
+  }
 }
